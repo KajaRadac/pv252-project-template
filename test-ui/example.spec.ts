@@ -56,3 +56,32 @@ test('go-to-home-page', async ({page})=>{
   await page.waitForURL('http://127.0.0.1:8080/');
   expect(page.url()).toBe('http://127.0.0.1:8080/');
 });
+
+test('nav-bar-links', async ({ page }) => {
+  await page.goto('https://loremipsum.io/font-generator');
+  await page.getByRole('link', { name: 'Lorem Ipsum' }).nth(0).click();
+  await page.waitForURL('https://loremipsum.io/');
+  expect(page.url()).toBe('https://loremipsum.io/');
+});
+
+test('nav-bar-links-1', async ({ page }) => {
+  await page.goto('https://loremipsum.io/');
+  await page.getByRole('link', { name: 'Font Generator' }).nth(0).click();
+  await page.waitForURL('https://loremipsum.io/font-generator');
+  expect(page.url()).toBe('https://loremipsum.io/font-generator');
+});
+
+test('generate-text', async ({ page }) => {
+  await page.goto('https://loremipsum.io/');
+  await page.getByRole('button', { name: 'Generate' }).click();
+  const generatedText = await page.locator('#text').textContent();
+  expect(generatedText).toContain('Lorem ipsum odor amet');
+});
+
+test('footer-links', async ({ page }) => {
+  await page.goto('https://loremipsum.io/');
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await expect(page.getByRole('link', { name: 'Privacy Policy' })).toBeVisible();
+  await page.getByRole('link', { name: 'Privacy Policy' }).click();
+  await expect(page).toHaveURL('https://loremipsum.io/privacy-policy');
+});
