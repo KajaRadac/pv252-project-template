@@ -39,6 +39,6 @@ site_b.onclick = () => {
   }, 1000);
 };
 
-  console.log("Main site initialized...");
+console.log("Main site initialized...");
 
 UIkit.notification("Hello World!", { pos: "bottom-right" });
