@@ -53,6 +53,9 @@ export class LazyList<T> extends HTMLElement {
 
   // The container that stores the spacer elements and the slot where items are inserted.
   #listElement: HTMLElement;
+  #items: number = 2;
+  #itemHeight: number = 350;
+
 
   static register() {
     customElements.define("lazy-list", LazyList);
@@ -73,51 +76,48 @@ export class LazyList<T> extends HTMLElement {
     this.#listElement = this.shadowRoot.querySelector<HTMLElement>("#list")!;
 
     this.#listElement.onscroll = () => {
-      this.#scrollPositionChanged(this.#listElement.scrollTop);
+      this.#scrollPositionChanged();
     };
 
-    // Remove this once you are actually showing some data in the list.
-    // this.innerHTML = "<span> Some content </span>"
-  }
+  };
+
 
   setData(data: T[]) {
     this.#data = data;
-    this.#contentChanged();
+    this.#updateVisibleContent();
   }
 
   setRenderer(renderer: Renderer<T>) {
     this.#renderFunction = renderer;
-    this.#contentChanged();
   }
 
-  #contentChanged() {
-    // "Naive list" solution: just add all elements as children to this list,
-    // and they will be placed inside the inner <slot></slot> element.
-    // this.innerHTML = "";
-    // for (const item of this.#data) {
-    // this.#listElement.appendChild(...)
-    //  this.appendChild(this.#renderFunction(item)); // places the children
-    //}
+  #updateVisibleContent() {
 
-    // Show only one item (for debugging, we will extend to more (visible)
-    // items later).
-    this.innerHTML = "";
-    if (this.#data.length > 0) {
-      this.appendChild(this.#renderFunction(this.#data[0]));
+    const visibleItemCount = Math.ceil(this.#listElement.clientHeight / this.#itemHeight) + this.#items;
+    const startIndex = Math.max(this.#visiblePosition - this.#items, 0);
+    const endIndex = Math.min(startIndex + visibleItemCount, this.#data.length);
+
+    this.#topOffset = startIndex * this.#itemHeight;
+    this.#bottomOffset = (this.#data.length - endIndex) * this.#itemHeight;
+
+    this.#topOffsetElement.style.height = `${this.#topOffset}px`;
+    this.#bottomOffsetElement.style.height = `${this.#bottomOffset}px`;
+
+    this.innerHTML = '';
+    for (let i = startIndex; i < endIndex; i++) {
+      const itemElement = this.#renderFunction(this.#data[i]);
+      this.appendChild(itemElement);
     }
   }
 
-  #scrollPositionChanged(topOffset: number) {
-    console.log(topOffset);
+  #scrollPositionChanged(){
 
-    // Update the height of the top offset to match the current scroll position.
-    // The effect should be that the content stays visible in one even
-    // though the user is scrolling.
-    this.#topOffsetElement.style.height = `${topOffset}px`;
-    // Because the browser will "shift" the visible area to match the height change
-    // we just did, we need to also reset the scroll position to
-    // the one we originally observed (i.e. the one to which we are
-    // adjusting the offset).
-    this.#listElement.scrollTop = topOffset;
+    const scrollTop = this.#listElement.scrollTop;
+    const startIndex = Math.floor(scrollTop / this.#itemHeight);
+    if (startIndex !== this.#visiblePosition) {
+      this.#visiblePosition = startIndex;
+      this.#updateVisibleContent();
+    }
+
   }
 }
