@@ -2,12 +2,13 @@
 // the FAST HTML templates, so we have to disable this check.
 // noinspection CssUnusedSymbol
 
-import { attr, css, FASTElement, html, nullableNumberConverter, observable, when } from "@microsoft/fast-element";
+import { attr, css, FASTElement, html, nullableNumberConverter, observable, when, repeat } from "@microsoft/fast-element";
 import { reactive } from "@microsoft/fast-element/state.js";
 
 import { allComponents, provideFluentDesignSystem } from '@fluentui/web-components';
 import { loadFamousPeople, Person } from "./famous_people.js";
 import { Context } from "@microsoft/fast-element/context.js";
+
 provideFluentDesignSystem().register(allComponents);
 
 /* 
@@ -309,7 +310,15 @@ export class PersonElement extends FASTElement {
    * we can use `x.person()`.
    */
   public person(): PersonListItem | null {
-    throw new Error("Not implemented");
+    if (
+      typeof this.position === "number" &&
+      this.position >= 0 &&
+      this.context?.people &&
+      this.position < this.context.people.length
+    ) {
+      return this.context.people[this.position];
+    }
+    return null;
   }
 
   /**
@@ -317,29 +326,124 @@ export class PersonElement extends FASTElement {
    * for the current `position`, assuming one is available.
    */
   public refresh() {
-    throw new Error("Not implemented");
+    if (typeof this.position === "number" && this.position >= 0) {
+      this.context?.refresh?.(this.position);
+    } else {
+      console.error("A position is needed for refresh.");
+    }
   }
 }
 
 /*
-
   Note that it could be useful to define templates for the specific types
   of state the PersonElement can have, and then use these templates in the
   "main" element template.
-
+*/
 const loadingState = html<PersonElement>`
-  ... what should be displayed when the item is loading? ...
-`
+  <fluent-skeleton
+    style="
+      height: 66px;
+      padding: 16px;
+      box-sizing: border-box;
+      background-color: lightgrey;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-style: italic;
+      color: #555;
+    "
+    shape="rect"
+    shimmer="true"
+  >
+    Loading person information...
+  </fluent-skeleton>
+`;
 
 const errorState = html<PersonElement>`
-  ... what should be displayed when the item has an error? ...
-`
+  <fluent-card 
+    style="
+      padding: 16px; 
+      height: 66px; 
+      background-color: #ffe6e6; 
+      border: 1px solid #ffcccc; 
+      display: flex; 
+      align-items: center; 
+      justify-content: space-between;
+      box-sizing: border-box;
+    "
+  >
+    <span 
+      style="
+        margin-left: 16px; 
+        color: #cc0000; 
+        font-weight: bold;
+      "
+    >
+      ${(x) => x.person()?.error || "An unexpected error occurred."}
+    </span>
+    <fluent-button
+      appearance="accent"
+      @click="${(x) => x.refresh()}"
+    >
+      Refresh
+    </fluent-button>
+  </fluent-card>
+`;
 
 const okState = html<PersonElement>`
-  ... what should be displayed when the item has data? ...
-`
-
-*/
+  <fluent-card 
+    style="
+      padding: 16px; 
+      background-color: #f9f9f9; 
+      border: 1px solid #ddd; 
+      border-radius: 8px; 
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      box-sizing: border-box;
+    "
+  >
+    <fluent-breadcrumb style="margin-bottom: 8px;">
+      <fluent-breadcrumb-item>
+        ${(x) => x.person()?.data?.continentName || "Unknown Continent"}
+      </fluent-breadcrumb-item>
+      <fluent-breadcrumb-item>
+        ${(x) => x.person()?.data?.countryName || "Unknown Country"}
+      </fluent-breadcrumb-item>
+      <fluent-breadcrumb-item>
+        ${(x) => x.person()?.data?.birthcity || "Unknown City"}
+      </fluent-breadcrumb-item>
+    </fluent-breadcrumb>
+    <h2 
+      style="
+        margin-top: 0; 
+        margin-bottom: 8px; 
+        font-size: 1.5rem; 
+        color: #333;"
+    >
+      ${(x) => x.person()?.data?.name || "Unknown Name"}
+    </h2>
+    <fluent-divider role="separator" style="margin-bottom: 8px;"></fluent-divider>
+    <p style="color: #555; line-height: 1.6;">
+      This person was born in ${(x) => x.person()?.data?.birthyear || "an unknown year"} 
+      and is/was working as 
+      ${(x) => x.person()?.data?.occupation?.toLowerCase() || "an unknown profession"} 
+      in the ${(x) => x.person()?.data?.industry?.toLowerCase() || "an unknown"} 
+      industry.
+    </p>
+    <fluent-divider role="separator" style="margin-bottom: 16px;"></fluent-divider>
+    <div style="display: flex; gap: 8px;">
+      <a href="https://maps.google.com" target="_blank">
+        <fluent-button appearance="accent">Show on map</fluent-button>
+      </a>
+      <fluent-button 
+        appearance="outline" 
+        @click="${(x) => x.refresh()}"
+      >
+        Refresh
+      </fluent-button>
+    </div>
+  </fluent-card>
+`;
 
 // This is the template for the `PersonElement`. Look at the documentation of
 // FAST templates to learn more about how to show data in HTML templates.
@@ -350,14 +454,90 @@ const okState = html<PersonElement>`
 // as self-contained as possible. Here, you can put such CSS into the CSS
 // template for this element.
 const personElementTemplate = html<PersonElement>`
-   ... render one person list element ...
+  ${when(
+    (x) => x.person() === null,
+    html`<div>Could not find specified person.</div>`
+  )}
+  ${when(
+    (x) => x.person()?.isLoading(),
+    loadingState
+  )}
+  ${when(
+    (x) => x.person()?.isError(),
+    errorState
+  )}
+  ${when(
+    (x) => x.person()?.isOk(),
+    okState
+  )}
 `;
 
 // This is the CSS template for the `PersonElement`. You can put in it CSS
 // rules that you only want to be applicable to
 // the shadow DOM of `PersonElement`.
-const personElementStyles = css`      
-    
+const personElementStyles = css`
+  :host {
+    display: block;
+    box-sizing: border-box;
+    font-family: var(--fluent-font-family, Arial, sans-serif);
+    color: var(--neutral-foreground-rest, #333);
+    background-color: var(--neutral-fill-layer-rest, #fff);
+    border: 1px solid var(--neutral-stroke-rest, #ccc);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 16px;
+    transition: box-shadow 0.3s ease, border-color 0.3s ease;
+  }
+
+  :host(:hover) {
+    border-color: var(--accent-fill-rest, #0078d4);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+
+  fluent-card {
+    display: block;
+    padding: 16px;
+    box-sizing: border-box;
+    background-color: var(--neutral-fill-rest, #f8f8f8);
+    border: none;
+    border-radius: 6px;
+  }
+
+  fluent-breadcrumb {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  fluent-divider {
+    margin: 8px 0;
+    background-color: var(--neutral-stroke-divider-rest, #e5e5e5);
+  }
+
+  h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: bold;
+    color: var(--neutral-foreground-rest, #222);
+  }
+
+  p {
+    margin: 8px 0 16px;
+    line-height: 1.5;
+    color: var(--neutral-foreground-rest, #555);
+  }
+
+
+
+  .error-state {
+    background-color: var(--neutral-fill-error-rest, #ffe6e6);
+    color: var(--neutral-foreground-error, #d8000c);
+    border: 1px solid var(--neutral-stroke-error-rest, #ff4d4d);
+  }
+
+  .loading-state {
+    background-color: var(--neutral-fill-layer-rest, #f0f0f0);
+    color: var(--neutral-foreground-rest, #666);
+  } 
 `
 
 // Finally, here we are defining the custom element, which we will call
@@ -407,12 +587,24 @@ export class PeopleList extends FASTElement {
 /*
     Again, it could be useful to define the list header as a separate
     template...
-
+*/
 const headerTemplate = html<PeopleList>`
-  ... the template for the header ...
+  ${when(
+    (x) => x.context.isLoading,
+    html`
+      <fluent-card style="padding: 16px; margin-bottom: 16px;">
+        <span style="display: block; margin-bottom: 8px;"
+          >Loaded
+          ${(x) => x.context.loaded}/${(x) => x.context.people.length}:</span
+        >
+        <fluent-progress
+          max="${(x) => x.context.people.length}"
+          value="${(x) => x.context.loaded}"
+        ></fluent-progress>
+      </fluent-card>
+    `,
+  )}
 `;
-
- */
 
 // Similar to before, this is the HTML template where we can specify what
 // the list should actually look like, including the header with the loading
@@ -420,7 +612,14 @@ const headerTemplate = html<PeopleList>`
 // elements now hidden in the shadow DOM, we need some <slot> element where
 // we will actually put the <people-item> elements.
 const personListTemplate = html<PeopleList>`
-  ... render the person list ...
+  ${headerTemplate}
+  ${repeat(
+    (x) => x.context.people,
+    html<PersonListItem>`
+      <person-item position="${(x, c) => c.index}"></person-item>
+    `,
+    { positioning: true },
+  )}
 `
 
 // Finally, we define the <people-list> element. In this case, we did not
